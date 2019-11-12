@@ -1,0 +1,323 @@
+---
+title: "EDAV Fall 2019 PSet 4"
+output: html_document
+---
+
+Read *Graphical Data Analysis with R*, Ch. 9, 11
+
+Read *Interactive Data Visualization for the Web*, Ch. 3, 5
+
+The theme of this problem set is freedom. As you will see, you'll have more choices than usual in terms of data and packages. 
+
+Remember that you are expected to meet with your partner in person--even if you are working on different parts there is a benefit to having someone to ask questions to or spot the typo in your code. You are also expected to communicate frequently, pull your weight, and not make unilateral decisions. It's all about collaboration and partnership.
+
+Grading is based both on your graphs and verbal explanations. Follow all best practices as discussed in class.
+
+```{r setup, include=FALSE}
+ # keep this chunk in your .Rmd file
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+```{r}
+library(dplyr)
+library(mi)
+library(tibble)
+library(ggplot2)
+library(tidyverse)
+library(ggmosaic)
+library(r2d3)
+```
+### 1. Missing values
+
+You may choose your own data. The only requirement is that it has some missing values.  If the dataset is large, you may choose to work with only some of the columns and a random selection of rows.
+
+Use any R plotting package (`ggplot2`, `naniar`, `mi`, `extracat`, etc.) to answer the following questions. (Note that `extracat` is not currently on CRAN but you can install it from a CRAN read-only mirror on GitHub: https://github.com/cran/extracat)
+
+We are using the data set from (https://www.kaggle.com/zusmani/us-mass-shootings-last-50-years#Mass%20Shootings%20Dataset%20Ver%202.csv)
+It is about the Mass Shootings in the United States of America (1966-2017) 
+
+It has 13 variables and 320 rows.And with 2 column having missing values. We should notice that the is.na() is simply applicable to data cell having number exactly as NA, but in reality the missing values are in various forms.
+```{R}
+mass = read.csv('Mass Shootings Dataset Ver 2.csv')
+
+length( which( 
+   colSums(is.na(mass) ) 
+  > 0 ) )
+```
+There are 12 columns.
+We would explore each of them a littl bit.
+```
+S#: The shooting number (int)
+Title: the title for this shooting (string)
+Location: The location for this shooting (string) 
+          missing data as NULL
+Date: date of each shooting happen (date)
+Summary: Briefing of the shooting (string)
+Fatalities: The number death in the shooting (integer)
+Injured: the number of injured in the shooting (integer)
+total victim: The number of victim in the shooting (integer)
+
+Mental Health Issues: Issues related to mental health of the person committing the crime (string)
+unknown/Unknown (can be viewed as missing value)
+yes
+no
+unclear
+
+Race: The race of the person committing the crime.(string)
+White American or European American
+Black American or African American
+Some other race
+Unknown (can be viewed as missing value)
+Other
+
+Gender: The gender of the person committing the crime.(string)
+Male
+Female
+Unknown (can be viewed as missing value)
+Other
+
+Latitude: The latitude of the shooting spot (num)
+Longitude: The longtitude of the shooting spot(num)
+
+```
+So as for string variable, emtpy string and string with "unknown" are missing data, we would turn these missing values into the form of NA so we can use is.na() to find them later.
+```{r}
+mass[mass['Summary']=='','Summary'] = NA
+mass[mass['Location'] == '', 'Location'] = NA
+mass[mass$Mental.Health.Issues %in% c('Unknown','unknown',''), 'Mental.Health.Issues'] = NA
+mass[mass$Race %in% c('Unknown',''), 'Race'] = NA
+mass[mass['Gender']  == 'Unknown', 'Gender'] = NA
+
+```
+Now we have 7 columns with missing values in it.
+```{r}
+
+sort( colSums(is.na(mass))[ which( 
+  colSums(is.na(mass) ) > 0 ) ]
+  ,decreasing = TRUE)
+```
+
+
+(a) Visualize and describe missing column patterns. Which variable has the highest number of missing values?
+
+
+Using bar chart to visiualize the number of missing values in each column.
+Here we know that mental health issues column is missing the most information.
+
+```{r}
+missing_col_count = sort( colSums(is.na(mass))[ which( 
+  colSums(is.na(mass) ) > 0 ) ]
+  ,decreasing = TRUE)
+
+col_count_df = data.frame(as.list(missing_col_count)) %>% t()  %>% data.frame()
+
+colnames(col_count_df) = c( 'count' )
+
+col_count_df = rownames_to_column(col_count_df,'variable')  
+
+ggplot(col_count_df)+
+  geom_col(aes(x=reorder(variable,desc(count)),y = count))+
+  labs(x = "varaible with missing values")
+```
+
+Then we use the heat map to see the trend for each column, it is obvious that to see that mental health issues has the highest number of missing values.
+```{r}
+tidymass<- mass %>%
+    gather(key, value, -S.) %>%
+    mutate(missing = ifelse(is.na(value), "yes", "no"))
+
+ggplot(tidymass, aes(x = key, y = S., fill = missing)) + 
+  geom_tile(color = "white") +
+  labs( y= 'observation') +
+  scale_fill_viridis_d() + # discrete scale
+  theme_bw()
+```
+
+We use another approach to visualize the missing pattern, it is clearer since the black is eye catching.
+```{r}
+
+x <- missing_data.frame(mass)
+image(x)
+```
+
+(b) Visualize and describe missing row patterns. Which row has the highest number of missing values? 
+
+We first find out how many possible numers of missing values are there. And it could be 4,3,2,1,0
+```{r}
+sort( rowSums(is.na(mass)) [ which( 
+  rowSums(is.na(mass)) > 0 ) ]
+  ,decreasing = TRUE)
+
+```
+We now draw a bar char for each row to find out the the ones with most missing values.
+
+```{r}
+row_count_df = rowSums(is.na(mass)) %>% data.frame()
+colnames(row_count_df) = c( 'count' )
+ggplot(row_count_df)+
+  geom_col(aes(reorder(row.names(row_count_df),desc(count)),count))+
+  labs(x = 'observations', y= 'count of missing values' )
+```
+Because there are many overlappings, we would select out the 
+rows with highest missing values.There are 19 of them.
+```{r}
+mass[ rowSums(is.na(mass)) == 4, 'Title']
+```
+
+
+Using the **mi** pacakage to find out the possible missing combinations. There are 12 of them.
+```{r}
+levels(x@patterns)
+```
+And the number for each combination is as followed.
+```{r}
+sort( summary(x@patterns),decreasing = TRUE )
+```
+We now use the visna to visiualize them, and we can see that the rows with missing values are mostly seen in the form of not having the value of mental health iusues value. 
+
+```{r}
+extracat::visna(mass,sort = 'b')
+```
+
+(c) Do correlations exist between the values of other variables and missing patterns? Investigate two missing patterns and draw conclusions such as:
+
+"The number of missing values for the `last sale price` column seems to be correlated with `average income in zipcode`: there are more missing values in `last sale price` for homes in low-income neighborhoods." 
+
+"There does not seem to be any correlation between `apartment type` and missing values in `last sale price`"
+
+Support your conclusions with graphs. 
+
+1. We want to find out if the missing values for the Race has a correlation with the shooters' Gender.
+
+```{r}
+percent_missing <- mass %>% group_by(Gender) %>%
+  summarize(num_shooter = n(), num_na = sum(is.na(Race))) %>%
+  mutate(percent_na = round(num_na/num_shooter, 2)) %>%
+  arrange(-percent_na)
+
+percent_missing 
+```
+
+```{r}
+ggplot(percent_missing) +
+  geom_col(aes(x=reorder(Gender,desc(percent_na)), y = percent_na )) +
+  labs(x = "Gender",y = "Missing percentage for Race")
+```
+Here we find the pattern that with unknown gender of the shooter, the race of him is also unknown. With male shooter, some race of them are missing. And With female shooter, their race are all recorded. With Gender defined ambiguous, the race is always known.   
+
+But we can not safely conclude that there is a correlation, becasue male are taking the most proportion of the shooters, and the missing values might just show up accidently.
+
+2. We want to find out if the missing values of mental health issues has a correlation with the race of the shooter.
+
+```{r}
+percent_missing <- mass %>% group_by(Race) %>%
+  summarize(num_shooter = n(), num_na = sum(is.na(Mental.Health.Issues))) %>%
+  mutate(percent_na = round(num_na/num_shooter, 2)) %>%
+  arrange(-percent_na)
+
+percent_missing 
+```
+
+```{r}
+ggplot(percent_missing) +
+  geom_col(aes(x=reorder(Race,desc(percent_na)), y = percent_na )) +
+  scale_x_discrete(labels = abbreviate) +
+  labs(x = "Race",y = "Missing percentage for Mental Health")
+```
+
+Here we see the pattern again that when the race is unknown , the mental health issues of the shooter is mostly unknown. There seems to be a correlation: there are more missing values in mental health issues for shooter races who are black, maybe it is caused by the situation that they seldom go to doctor and few record has recorded about their mental health.
+
+### 2. Time Series
+
+(a) Use the **tidyquant** package to collect information on anything other than stock prices for which time series data is available. Create a multiple line chart to compare trends over time. Your chart should have at least 3 lines.
+
+
+(b) Transform the data so each series begins at 100 and replot. (see Unwin, p. 229)
+
+
+(c) Compare the graphs in (a) and (b).
+
+### 3. Cause of Death
+
+Data: https://wonder.cdc.gov/ucd-icd10.html
+
+(a) Create a series of choropleth maps in which only one variable changes, such as level of a factor variable or time.
+
+For inspiration, see these examples:
+
+https://www.nytimes.com/interactive/2017/06/30/upshot/the-best-and-worst-new-york-neighborhoods.html
+
+https://www.nytimes.com/interactive/2017/10/05/upshot/gun-ownership-partisan-divide.html
+
+(b) Interpret the graphs you drew in (a).
+
+### 4. Mosaic plot (SVG / D3)
+
+(a) Manually create a 2 x 2 mosaic plot of party affiliation by gender for (House) representatives currently in the U.S. Congress using SVG. Data is available here in `.csv` form: https://github.com/unitedstates/congress-legislators
+```{r}
+member = read.csv('legislators-current.csv')
+member_mosaic = member[member$party %in% c('Democrat','Republican'),c('gender','party')] %>% droplevels()
+
+ggplot(member_mosaic) + 
+  geom_mosaic(aes(x=product(party, gender),
+                  fill = party),
+              #divider = c('vspine','hspine')
+              )
+```
+
+You may remove any Independents. 
+```{r}
+ group_by(member_mosaic,gender,party) %>% summarize(Freq = n())
+```
+The SVG should be 500 x 400 pixels and included in your `.Rmd` file between svg tags (**not** in a code chunk):
+
+<html>
+<body>
+  
+  <svg width="500" height="400"> 
+  <text x="10" y="30" style="font-size: 24px;"> Composition of U.S. House of Reps, 2019 </text>
+  <text x="20" y="75"> Republican </text>
+  <text x="20" y="250"> Democrat </text>
+  <text x="10" y="200" style="font-weight: bold;" > Party </text>
+  <text x="125" y="370"> Women </text>
+  <text x="280" y="370"> Men </text>
+  <text x="200" y="390" style="font-weight: bold;"> Gender </text>
+	<rect id="frep" x="100" y="50" width="73.46" height="52.67" fill="lightblue"></rect>
+	<rect id="fdem" x="100" y="102.57" width="73.46" height="247.33" fill="lightpink"></rect>
+	<rect id="mrep" x="173.46" y="50" width="226.54" height="170.05" fill="lightblue"></rect>
+	<rect id="mdem" x="173.46" y="220.05" width="226.54" height="129.95" fill="lightpink"></rect>
+	</svg>
+</body>
+</html>
+
+<!--width="300*131/535 = 73.46" "300*23/131 = 53" -->
+<!--width="300*131/535 = 73.46"  height="300*108/131" -->
+<!--width="300*404/535 = 226.54"  height="300*229/404 = 170.05" -->
+<!--width="300*404/535 = 226.54"  height="300*175/404" -->
+The axes and levels of each variable should be labeled.
+
+(Don't despair, this is the only time you will have to create SVG by hand for this class!)
+
+
+(b) Change your code from (a) so that with the exception of the blank SVG, the mosaic plot is completely created with D3, based on a dataset that you provide that contains the 4 values you calculated for part (a). Your code should work if the values change.
+
+There are two options for including D3 directly in your `.Rmd` file:
+
+  i. You can include it as before in the "non code" section of the file using the template below. If you go this route, you will likely prefer to work in a text editor with a browser open on the other half of your screen, or in some other manner which will allow you to view your visualization as you go.
+```
+<svg id="partb" width="500" height="400">
+</svg>
+
+<script src="https://d3js.org/d3.v5.min.js"></script>
+
+<script>
+
+*Your JavaScript/D3 code goes here.*
+
+</script>
+```
+  ii. Use the **r2d3** package. The setup here is different.  You will create your visualization in a `.js` file and then call it from an R chunk. More information is available on the package site: https://rstudio.github.io/r2d3/ (Note that you no longer need the preview version of RStudio.) If you use **r2d3**, please erase the template code in i.
+```{r}
+data=list(women_republican = 23, women_democrat = 108 , men_republican = 229, men_democrat = 175)
+r2d3(data=data, script = "mosaic.js")
+```
+
