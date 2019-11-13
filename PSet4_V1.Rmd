@@ -1,0 +1,197 @@
+---
+title: "EDAV Fall 2019 PSet 4"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+Read *Graphical Data Analysis with R*, Ch. 9, 11
+
+Read *Interactive Data Visualization for the Web*, Ch. 3, 5
+
+The theme of this problem set is freedom. As you will see, you'll have more choices than usual in terms of data and packages. 
+
+Remember that you are expected to meet with your partner in person--even if you are working on different parts there is a benefit to having someone to ask questions to or spot the typo in your code. You are also expected to communicate frequently, pull your weight, and not make unilateral decisions. It's all about collaboration and partnership.
+
+Grading is based both on your graphs and verbal explanations. Follow all best practices as discussed in class.
+
+```{r setup, include=FALSE}
+ # keep this chunk in your .Rmd file
+ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+```
+    
+### 1. Missing values
+
+You may choose your own data. The only requirement is that it has some missing values.  If the dataset is large, you may choose to work with only some of the columns and a random selection of rows.
+
+Use any R plotting package (`ggplot2`, `naniar`, `mi`, `extracat`, etc.) to answer the following questions. (Note that `extracat` is not currently on CRAN but you can install it from a CRAN read-only mirror on GitHub: https://github.com/cran/extracat)
+
+(a) Visualize and describe missing column patterns. Which variable has the highest number of missing values? 
+
+(b) Visualize and describe missing row patterns. Which row has the highest number of missing values? 
+
+(c) Do correlations exist between the values of other variables and missing patterns? Investigate two missing patterns and draw conclusions such as:
+
+"The number of missing values for the `last sale price` column seems to be correlated with `average income in zipcode`: there are more missing values in `last sale price` for homes in low-income neighborhoods." 
+
+"There does not seem to be any correlation between `apartment type` and missing values in `last sale price`"
+
+Support your conclusions with graphs. 
+
+### 2. Time Series
+
+(a) Use the **tidyquant** package to collect information on anything other than stock prices for which time series data is available. Create a multiple line chart to compare trends over time. Your chart should have at least 3 lines.
+
+```{r}
+library(tidyquant)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+
+# data of prices of metal in a form of tibble 
+metal_prices = tq_get(c("XAU", "XAG", "XPD", "XPT"), get = "metal.prices", 
+                      from = Sys.Date() - lubridate::days(180), base.currency = "USD")
+
+# Create a multiple line chart of weekly prices in USD of the four metal prices.
+# Showing each metal prices in a different color on the same graph.
+metal_prices %>%
+  ggplot(aes(date, price, color=symbol)) +
+  geom_line() +
+  labs(title = "A multiple line chart of 4 metal prices(per ounce) in USD \n of Gold, Silver, Palladium, Platinum in past 180 days  of Nov. 11th, 2019",
+       caption  = "datasource: Oanda(webpage) from tidyquant package \n source: https://cran.r-project.org/web/packages/tidyquant/vignettes/TQ01-core-functions-in-tidyquant.html",
+       x = "Time", y= "Price (USD)") 
+```
+
+(b) Transform the data so each series begins at 100 and replot. (see Unwin, p. 229)
+```{r}
+# Create a multiple line chart of weekly prices in USD of the four metal prices.
+# Showing each metal prices in a different color on the same graph.
+# Transform the data so metal prices begins at 100 and replot.
+ metal_prices %>%
+  group_by(symbol) %>%
+  mutate(price = 100*price/first(price)) %>%
+  ggplot(aes(date, price, color=symbol)) +
+  geom_line() +
+  labs(title = "A multiple line chart of 4 metal prices(per ounce) in USD \n of Gold, Silver, Palladium, Platinum in past 180 days  of Nov. 11th, 2019",
+       caption  = "datasource: Oanda(webpage) from tidyquant package \n source: https://cran.r-project.org/web/packages/tidyquant/vignettes/TQ01-core-functions-in-tidyquant.html",
+       x = "Time", y= "Price (USD)") 
+
+```
+
+(c) Compare the graphs in (a) and (b).\
+Note: Variables XAU, XAG, XPT, XPD are currency standard codes of Gold, Siler, Platinum, Palladium, in a respective order (i.e. XAU =  ISO 4217 standard code for one ounce of gold). Thus, the variable names are not changed, for example XAU to gold.\
+\
+Comparison of graphs in part(a) and part(b):\
+\
+  By looking at the graph in part(a), where the replotting is not applied, each of the metal's prices per ounce is plotted daily. In generall, while Palladim(XPD) shows a little fluctuation of prices over a time period, other metals does not seem to fluctuate (which is proved to be wrong by looking at graph on part (b)). Since each of the metal has its disticnt, different monetary value per ounce, there is huge gap (vertically) between line plots of relatively low-valued metal such as Silver(XAG) vs higher valued metal such as Platinum(XPD), and between Platinum and even higher valued metals such as Palladium (XPD) and Gold (XAU). Accordingly, there are many difficulties in reading trends of both individual metals and comparison between metals.\ 
+  For relatively low-valued metal such as silver, since the metal's price per ounce is much lower than other metals, fluctuations of Silver's price per ounce is not easily visible on the graph on part(a) where the variance/fluctuations of price of silver is only a tiny part on the y-axis. Moreover, it even seems there's nearly no fluctuation in price of Silver due to this reason. While this phenomenon is evident from Silver's case, it applies generally to other metals as well since the scales is not unified.\
+  On the other hand, there are also many difficulties of comparing trends between the metals using graph on part(a). When two variables fluctuatae at a distance far apart, it is hard to compare trends between the metals (for example trends of Silver(XAU) v.s. Platinum (XPT) or Platinum vs Gold (XAU)/Palladium(XPD)). Even if two metals' prices fluctuate in relatively close to each other, for example, Gold (XAU) vs Palladium(XPD), there are difficulties in comparing trends of the two metals. In this case, while we can identify approixmated trends such as increasement/decreasement of the two metals' price when prices of the two metals both increase and decrease in a given,same period, exact trends between the two metals cannot be measured since the fluctations are still based on two different "scales".\
+\
+  Now looking at the graph on part(b), where rescaling is applied so that all the metals' price begin at a value of 100, totally different trends appear, both for individual metals, and when comparing among/between the metals. First looking at individual trend of metals, distinction appears most apparent in silver's trend. While it was shown on part(a) that it had neary no fluctuation on the same period of time, it now shows to fluctuate equivalently or even more than other metals. Also, It's relative price, which started from 100, reaches around 115 at the end of the given period, about 15% increasement which was not visible from graph on part(a). This phenomenon similarly applies to other metals in that it all show to fluctuate more "widely", when compared to graph shown in part(a). Also, each of the metal prices increases at the end period compared to the starting period, which again was hard to visualize in graph in part(a).\
+  A more clear benefit of appllying the unified starting value is when we try to compare trends between different metals. Comparing between trends of Platinum and Silver, which was not easy to compare in part 1 except that platinum's price is higher than that of silver, it now shows that Silver is fluctuating at a higher level than that of Platinum. Also, as shown on the graph on part(a), when two variables fluctuates in a realtively close to each other, without scaling the two variables to the same starting value, it was hard to compare trends since each flunctuation is relative to each variable's previous values, which are different from that of another variable. This phenonmeon appears most clearly, for example, when we are compare Palladium(XPD) and Gold(XAU) around September. In graph (a), Gold's price per ounce (XAU), which was higher than that of Palladium(XPD) right before September, decreases and interescts, then the trend changes around when September begins. However, as can seen on the graph above on part(b), this trend does not appear.\
+  Thus, it is crucial to replot to compare trends of different variables. As described briefly above, transforming/scaling the data such that each variable's value start from common value, i.e. 100, reveals trends that could not be seen otherwise. For another example, until early June to Auguts, graph oh part(a) does not reveal any intersection of the lines. However, as shown on graph on part (b), the metal_prices between Gold and Palladium interesects around early june in that a trend of Gold's price per ounce, which was higher than that of Palladium, changes upside down.\
+
+
+### 3. Cause of Death
+
+Data: https://wonder.cdc.gov/ucd-icd10.html
+
+(a) Create a series of choropleth maps in which only one variable changes, such as level of a factor variable or time.
+
+For inspiration, see these examples:
+
+https://www.nytimes.com/interactive/2017/06/30/upshot/the-best-and-worst-new-york-neighborhoods.html
+
+https://www.nytimes.com/interactive/2017/10/05/upshot/gun-ownership-partisan-divide.html
+```{r, fig.width=15, fig.height=20}
+library(readr)
+library(maps)
+library(ggplot2)
+library(tidyverse)
+library(viridis)
+library(data.table)
+
+# read txt data file
+df <- readr::read_delim("Underlying_Cause_of_Death_1999_2017.txt" , delim = "\t") 
+df <- as.data.frame(df)
+df$State <- tolower(df$State) # make all states to be in lower case to work with maps
+df$state <- df$State
+
+# select columns in interest i.e. year, state, and crude rate (crude death rate per 10,000 people)
+df <- subset(df, select = c(Year,state,`Crude Rate` )) 
+df <- subset(df, Year>"2007") # look for most recent 10 years of data
+df <- na.omit(df) # omit missing values
+
+# U.S. States map data with longitude and laditude
+states_map <-map_data("state") 
+
+ggplot(subset(df, Year>"2007"), aes(map_id = state)) + geom_map(aes(fill = `Crude Rate`), map = states_map, col = "white") +
+  expand_limits(x = states_map$long, y = states_map$lat) + scale_fill_viridis_c(option = "viridis") +
+  facet_wrap(~Year, ncol = 2 ) +
+  labs(fill = "Death rate per \n 10,000 population ",
+       title = "U.S. Death Rate per 10,000 population from 2008-2017", x = "longitude", y = "latitude",
+       caption = "source: https://wonder.cdc.gov/ucd-icd10.html") +
+  coord_fixed(1.3) +
+  theme_minimal()
+
+# top/bottom 3 states with highest/lowest death rate per 10,000 people, in each year
+top_3_states <- setorder(setDT(df), -'Crude Rate')[, head(.SD, 3), keyby = Year]
+bot_3_states <- setorder(setDT(df), 'Crude Rate')[, head(.SD, 3), keyby = Year]
+colnames(top_3_states)[2] <- "Top_3_States"
+colnames(bot_3_states)[2] <- "Bot_3_States"
+
+# make two results into one table
+top_3_states$Bot_3_States<- bot_3_states$Bot_3_States
+result <- subset(top_3_states, select =c(Year, Top_3_States, Bot_3_States))
+result
+```
+
+
+(b) Interpret the graphs you drew in (a).\
+\
+  First, the oiginal dataset acquired from the source(https://wonder.cdc.gov/ucd-icd10.html) has yearly data early from 1999. We took most recent 10 years of data, which is from year 2008 to 2017, to better see trends of death rate per 10,000 over the period (i.e. plotting all 19 years of data seem to take too much space). \
+  Throughout the graph Viridis color distribution is used with brighter/darker color represents higher/lower death rate per 10,000 people. In general, it is interesting to note that over the given period, states' color does not change abruptly (except for few states). Overall distribution of color of states in 2008 tend to be similar compared to other years, and distribuution of colors of states in that most of states's color do not tend to change abruptly over the years such that it stands out from other years. Then, what is more interesting is that since each state's color is different (meaning death rate per 10,000 people  is different per each state), it represents that some states tend to have higher/lower death rate than other states, and this trend does not abruptly change over each year. Now let's look at patterns from some particular states.\
+  From the 10 years of data, it is first apparent by looking at the graphs that there is one state, West Virginia, which sticks out from rest of the states by its lightest color. The state's color becomes lighter over the period from light green to yellow. Since we are using Viridis color palette, with its lighter count represents higher death rate per 10,000 people, it not only shows that in each year, West Virginia has highest death rate out of all the States, and its death rate tends to keep increasing over the 10 year period. In fact, this was again verified by the table after the graph where it shows states with 3 highest and lowest death rate for each year.\
+  Similarly, by looking at the graphs, states in southeastern region seem to have brigter colors compared to other regions besides West Virginia. And over the 10 years, it becomes clearer that Alabama, and Arkansas seem to become distinct by its lighter colors compared to other staes in the southeasern region and generally compared to other states. This represents that these two states would likely to have higher death rate per 10,000 peoople compared to other states, and this again can be verified by the above table where it shows Alabama and Arkansas being most often reported to be states with 2nd and 3rd states with highest death rate.\
+  On the other hand, similar to West Virginia, there is one state, Utah, which stands out from rest of the states by its darkest color of dark purple in each year over the period. The darkest color represents that the state, Utah, would have lowest death rate per 10,000 people. As verified by the table above, it is correct that Utah stays at state with lowest death rate per 10,000 people, besides Alaska (Note. Althogh Alaska's data is given in the dataset, it is not shown on the map(similarly to Hawaii) since map_data() function, which is used to denote each state's location, do not include the states). Similar to Arkansas and Alabama, the next two darkest colored states and thus next lowest death rate appear to be from Colorado and California (and it is verified by the table above in that both states often appear in the bottom 3 list)\
+
+
+### 4. Mosaic plot (SVG / D3)
+
+(a) Manually create a 2 x 2 mosaic plot of party affiliation by gender for (House) representatives currently in the U.S. Congress using SVG. Data is available here in `.csv` form: https://github.com/unitedstates/congress-legislators
+
+You may remove any Independents. 
+
+The SVG should be 500 x 400 pixels and included in your `.Rmd` file between svg tags (**not** in a code chunk):
+
+<svg width="500" height="400"> 
+
+*Your svg code here.*  
+
+</svg>
+
+The axes and levels of each variable should be labeled.
+
+(Don't despair, this is the only time you will have to create SVG by hand for this class!)
+
+
+(b) Change your code from (a) so that with the exception of the blank SVG, the mosaic plot is completely created with D3, based on a dataset that you provide that contains the 4 values you calculated for part (a). Your code should work if the values change.
+
+There are two options for including D3 directly in your `.Rmd` file:
+
+  i. You can include it as before in the "non code" section of the file using the template below. If you go this route, you will likely prefer to work in a text editor with a browser open on the other half of your screen, or in some other manner which will allow you to view your visualization as you go.
+
+<svg id="partb" width="500" height="400">
+</svg>
+
+<script src="https://d3js.org/d3.v5.min.js"></script>
+
+<script>
+
+*Your JavaScript/D3 code goes here.*
+
+</script>
+
+  ii. Use the **r2d3** package. The setup here is different.  You will create your visualization in a `.js` file and then call it from an R chunk. More information is available on the package site: https://rstudio.github.io/r2d3/ (Note that you no longer need the preview version of RStudio.) If you use **r2d3**, please erase the template code in i.
+
+
