@@ -125,7 +125,7 @@ df <- na.omit(df) # omit missing values
 # U.S. States map data with longitude and laditude
 states_map <-map_data("state") 
 
-ggplot(subset(df, Year>"2007"), aes(map_id = state)) + geom_map(aes(fill = `Crude Rate`), map = states_map, col = "white") +
+ggplot(df, aes(map_id = state)) + geom_map(aes(fill = `Crude Rate`), map = states_map, col = "white") +
   expand_limits(x = states_map$long, y = states_map$lat) + scale_fill_viridis_c(option = "viridis") +
   facet_wrap(~Year, ncol = 2 ) +
   labs(fill = "Death rate per \n 10,000 population ",
